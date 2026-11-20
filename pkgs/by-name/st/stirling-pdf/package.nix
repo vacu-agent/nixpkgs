@@ -13,11 +13,19 @@
   makeBinaryWrapper,
   nodejs,
   npmHooks,
+  ocrmypdf,
   pkg-config,
+  pngquant,
+  poppler-utils,
   python3,
+  qpdf,
+  tesseract,
+  unpaper,
+  which,
   wrapGAppsHook3,
 
   glib-networking,
+  ghostscript_headless,
   jdk25,
   libsoup_3,
   openssl,
@@ -61,6 +69,17 @@ let
   '';
   jre = jdk25;
   python = python3.withPackages (ps: [ ps.fonttools ]);
+  # The desktop backend runs these by bare name, so they must win over e.g. git-spice's `gs`.
+  desktopRuntimePath = lib.makeBinPath [
+    ghostscript_headless
+    ocrmypdf
+    pngquant
+    poppler-utils
+    qpdf
+    tesseract
+    unpaper
+    which
+  ];
 in
 stdenv.mkDerivation (finalAttrs: {
   __structuredAttrs = true;
@@ -212,6 +231,10 @@ stdenv.mkDerivation (finalAttrs: {
     webkitgtk_4_1
   ];
 
+  preFixup = lib.optionalString (isDesktopVariant && stdenv.hostPlatform.isLinux) ''
+    gappsWrapperArgs+=(--prefix PATH : ${desktopRuntimePath})
+  '';
+
   dontUseGradleBuild = isDesktopVariant; # we'll use the buildPhase from cargo-tauri-hook for the desktop app
 
   # prepare the resources before building the desktop app
@@ -255,7 +278,8 @@ stdenv.mkDerivation (finalAttrs: {
     install -Dm644 frontend/src/editor/proprietary/LICENSE $out/share/licenses/stirling-pdf/frontend-proprietary-LICENSE
   ''
   + lib.optionalString (isDesktopVariant && stdenv.hostPlatform.isDarwin) ''
-    makeWrapper "$out/Applications/Stirling PDF.app/Contents/MacOS/Stirling-PDF" "$out/bin/stirling-pdf"
+    makeWrapper "$out/Applications/Stirling PDF.app/Contents/MacOS/Stirling-PDF" "$out/bin/stirling-pdf" \
+      --prefix PATH : ${desktopRuntimePath}
   '';
 
   passthru = {
